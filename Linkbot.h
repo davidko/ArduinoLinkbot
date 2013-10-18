@@ -56,7 +56,7 @@ class Linkbot {
     int setJointSpeed(int joint, float speed);
     int setJointSpeeds(float speed1, float speed2, float speed3);
     int setJointState(int joint, int state);
-    int setJointStates(int state1, int state2, int state3);
+    int setJointStates(int state1, int state2, int state3, float speed1, float speed2, float speed3);
     int setLEDColor(uint8_t r, uint8_t g, uint8_t b);
     int setMotorPower(int joint, int power);
     int setMotorPowers(int power1, int power2, int power3);

@@ -86,9 +86,9 @@ int Linkbot::getAccelerometerData(float &x, float &y, float &z)
 {
   packSimpleCmd(BTCMD(CMD_GETACCEL));
   transactMessage();
-  memcpy(&x, &_buf[2], 4);
-  memcpy(&y, &_buf[6], 4);
-  memcpy(&z, &_buf[10], 4);
+  memcpy(&x, &g_recvBuf[7], 4);
+  memcpy(&y, &g_recvBuf[11], 4);
+  memcpy(&z, &g_recvBuf[15], 4);
   return 0;
 }
 
@@ -96,7 +96,7 @@ int Linkbot::getBatteryVoltage(float &volts)
 {
   packSimpleCmd(BTCMD(CMD_GETBATTERYVOLTAGE));
   transactMessage();
-  memcpy(&volts, &_buf[2], 4);
+  memcpy(&volts, &g_recvBuf[7], 4);
   return 0;
 }
 
@@ -112,112 +112,233 @@ int Linkbot::getFormFactor(int &form)
 
 int Linkbot::getJointAngle(int joint, float &angle)
 {
+  float angle1, angle2, angle3;
+  float angles[3];
+  getJointAngles(angle1, angle2, angle3);
+  angles[0] = angle1;
+  angles[1] = angle2;
+  angles[2] = angle3;
+  angle = angles[joint-1];
   return 0;
 }
 
 int Linkbot::getJointAngles(float &angle1, float &angle2, float &angle3)
 {
+  packSimpleCmd(BTCMD(CMD_GETMOTORANGLESABS));
+  transactMessage();
+  memcpy(&angle1, &g_recvBuf[7], 4);
+  memcpy(&angle2, &g_recvBuf[11], 4);
+  memcpy(&angle3, &g_recvBuf[15], 4);
+  angle1 = RAD2DEG(angle1);
+  angle2 = RAD2DEG(angle2);
+  angle3 = RAD2DEG(angle3);
   return 0;
 }
 
 int Linkbot::isMoving()
 {
-  return 0;
+  packSimpleCmd(BTCMD(CMD_IS_MOVING));
+  transactMessage();
+  return g_recvBuf[7];
 }
 
 int Linkbot::moveJoint(int joint, float angle)
 {
+  float _angle;
+  getJointAngle(joint, _angle);
+  moveJointToNB(joint, angle+_angle);
+  moveWait();
   return 0;
 }
 
 int Linkbot::moveJointNB(int joint, float angle)
 {
+  float _angle;
+  getJointAngle(joint, _angle);
+  moveJointToNB(joint, angle+_angle);
   return 0;
 }
 
 int Linkbot::moveJointTo(int joint, float angle)
 {
+  moveJointToNB(joint, angle);
+  moveWait();
   return 0;
 }
 
 int Linkbot::moveJointToNB(int joint, float angle)
 {
-  return 0;
+  angle = DEG2RAD(angle);
+  packBufReset();
+  packBufByte(BTCMD(CMD_SETMOTORANGLEABS));
+  packBufByte(0x00);
+  packBufByte(joint);
+  packBuf(&angle, 4);
+  packBufByte(0x00);
+  return transactMessage();
 }
 
 int Linkbot::move(float angle1, float angle2, float angle3)
 {
+  moveNB(angle1, angle2, angle3);
+  moveWait();
   return 0;
 }
 
 int Linkbot::moveNB(float angle1, float angle2, float angle3)
 {
+  float a1, a2, a3;
+  getJointAngles(a1, a2, a3);
+  moveToNB(angle1+a1, angle2+a2, angle3+a3);
   return 0;
 }
 
 int Linkbot::moveTo(float angle1, float angle2, float angle3)
 {
+  moveToNB(angle1, angle2, angle3);
+  moveWait();
   return 0;
 }
 
 int Linkbot::moveToNB(float angle1, float angle2, float angle3)
 {
-  return 0;
+  angle1 = DEG2RAD(angle1);
+  angle2 = DEG2RAD(angle2);
+  angle3 = DEG2RAD(angle3);
+  packBufReset();
+  packBufByte(BTCMD(CMD_SETMOTORANGLESABS));
+  packBufByte(0x00);
+  packBuf(&angle1, 4);
+  packBuf(&angle2, 4);
+  packBuf(&angle3, 4);
+  packBuf(&angle3, 4);
+  packBufByte(0x00);
+  return transactMessage();
 }
 
 int Linkbot::moveWait()
 {
+  while(isMoving()) {
+    delay(100);
+  }
   return 0;
 }
 
 int Linkbot::reset()
 {
-  return 0;
+  packSimpleCmd(BTCMD(CMD_RESETABSCOUNTER));
+  return transactMessage();
 }
 
 int Linkbot::resetToZero()
 {
+  reset();
+  moveTo(0, 0, 0);
   return 0;
 }
 
 int Linkbot::setJointSpeed(int joint, float speed)
 {
-  return 0;
+  speed = DEG2RAD(speed);
+  packBufReset();
+  packBufByte(BTCMD(CMD_SETMOTORSPEED));
+  packBufByte(0x00);
+  packBufByte(joint);
+  packBuf(&speed, 4);
+  packBufByte(0x00);
+  return transactMessage();
 }
 
 int Linkbot::setJointSpeeds(float speed1, float speed2, float speed3)
 {
+  setJointSpeed(1, speed1);
+  setJointSpeed(2, speed2);
+  setJointSpeed(3, speed3);
   return 0;
 }
 
 int Linkbot::setJointState(int joint, int state)
 {
-  return 0;
+  packBufReset();
+  packBufByte(BTCMD(CMD_SETMOTORDIR));
+  packBufByte(0x00);
+  packBufByte(joint);
+  packBufByte(state);
+  packBufByte(0x00);
+  return transactMessage();
 }
 
-int Linkbot::setJointStates(int state1, int state2, int state3)
+int Linkbot::setJointStates(int state1, int state2, int state3, float speed1, float speed2, float speed3)
 {
-  return 0;
+  packBufReset();
+  packBufByte(BTCMD(CMD_SETMOTORSTATES));
+  packBufByte(0x00);
+  packBufByte(state1);
+  packBufByte(state2);
+  packBufByte(state3);
+  packBufByte(0);
+  packBuf(&speed1, 4);
+  packBuf(&speed2, 4);
+  packBuf(&speed3, 4);
+  packBuf(&speed1, 4);
+  packBufByte(0x00);
+  return transactMessage();
 }
 
 int Linkbot::setLEDColor(uint8_t r, uint8_t g, uint8_t b)
 {
-  return 0;
+  packBufReset();
+  packBufByte(BTCMD(CMD_RGBLED));
+  packBufByte(0xff);
+  packBufByte(0xff);
+  packBufByte(0xff);
+  packBufByte(r);
+  packBufByte(g);
+  packBufByte(b);
+  packBufByte(0x00);
+  return transactMessage();
 }
 
 int Linkbot::setMotorPower(int joint, int power)
 {
-  return 0;
+  uint8_t mask;
+  int16_t _power = power;
+  int i;
+  mask = 1<<joint;
+  packBufReset();
+  packBufByte(BTCMD(CMD_SETMOTORPOWER));
+  packBufByte(0x00);
+  packBufByte(mask);
+  for(i = 0; i < 3; i++) {
+    packBufByte(_power>>8);
+    packBufByte(_power&0x00ff);
+  }
+  packBufByte(0x00);
+  return transactMessage();
 }
 
 int Linkbot::setMotorPowers(int power1, int power2, int power3)
 {
-  return 0;
+  int16_t powers[3];
+  int i;
+  powers[0] = power1;
+  powers[1] = power2;
+  powers[2] = power3;
+  packBufReset();
+  packBufByte(BTCMD(CMD_SETMOTORPOWER));
+  packBufByte(0x00);
+  packBufByte(0x07);
+  for(i = 0; i < 3; i++) {
+    packBufByte(powers[i]>>8);
+    packBufByte(powers[i]&0x00ff);
+  }
+  packBufByte(0x00);
+  return transactMessage();
 }
 
 int Linkbot::stop()
 {
-  return 0;
+  packSimpleCmd(BTCMD(CMD_STOP));
 }
 
 void Linkbot::packBufReset()
