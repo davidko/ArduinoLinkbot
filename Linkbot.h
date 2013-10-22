@@ -1,6 +1,8 @@
 #ifndef _LINKBOT_H_
 #define _LINKBOT_H_
 
+/* Web page at http://davidko.github.io/ArduinoLinkbot/ */
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
