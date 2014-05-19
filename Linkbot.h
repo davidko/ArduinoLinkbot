@@ -191,6 +191,7 @@ class Linkbot {
     /** Set a joint's speed in degrees/second */
     int setJointSpeed(int joint, float speed);
     int setJointSpeeds(float speed1, float speed2, float speed3);
+    /** Set a joint's current state. The state can be any of robotJointState_e */
     int setJointState(int joint, int state);
     int setJointStates(int state1, int state2, int state3, float speed1, float speed2, float speed3);
 
@@ -200,6 +201,7 @@ class Linkbot {
 
     /** Set a motor's power. Power values can be from -255 to 255. */
     int setMotorPower(int joint, int power);
+    /** Set the motor power for all of the joints on the robot. */
     int setMotorPowers(int power1, int power2, int power3);
 
     /** Stop all motors on the robot. */
