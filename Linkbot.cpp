@@ -6,9 +6,22 @@ extern "C" {
 #include "utility/commands.h"
 #include "utility/twi.h"
 #include <math.h>
+
+void dprint(const char* buf) {
+    Serial.write(buf);
+}
+} // extern "C"
+
+
+static void rmemcpy(void *dest, const void *src, size_t n) {
+    const uint8_t* _src = (const uint8_t*)src;
+    uint8_t* _dest = (uint8_t*) dest;
+    for(int i = 0; i < n; i++) {
+        _dest[n-1-i] = _src[i];
+    }
 }
 
-uint8_t g_recvBytes = 0;
+volatile uint8_t g_recvBytes = 0;
 uint8_t g_recvBuf[256];
 
 uint8_t g_twiInitialized = 0;
@@ -129,9 +142,19 @@ int Linkbot::getJointAngles(float &angle1, float &angle2, float &angle3)
   memcpy(&angle1, &g_recvBuf[7], 4);
   memcpy(&angle2, &g_recvBuf[11], 4);
   memcpy(&angle3, &g_recvBuf[15], 4);
+  char buf[32];
+  sprintf(buf, "m1: %d m2: %f, m3: %f, 0x%x%x%x%x\n", (int)(angle1*1000), angle2, angle3,
+          g_recvBuf[7],
+          g_recvBuf[8],
+          g_recvBuf[9],
+          g_recvBuf[10]
+          );
+  Serial.write(buf);
   angle1 = RAD2DEG(angle1);
   angle2 = RAD2DEG(angle2);
   angle3 = RAD2DEG(angle3);
+  sprintf(buf, "m1: %f\n", angle1);
+  Serial.write(buf);
   return 0;
 }
 
@@ -370,6 +393,7 @@ int Linkbot::transactMessage()
 {
   unsigned long startMillis;
   static uint8_t buf[256];
+  g_recvBytes = 0;
   /* First, compose the Link-Layer message */
   _buf[1] = _bufsize;
   buf[0] = _buf[0];
@@ -383,15 +407,19 @@ int Linkbot::transactMessage()
   while(TWI_READY != twi_state) {
     asm("nop");
   }
-  g_recvBytes = 0;
   startMillis = millis();
+  Serial.write("!\n");
   twi_writeTo(0x01, buf, _bufsize+6, 1, 1);
+  Serial.write(".\n");
   /* Wait for a response or a timeout */
+  char sbuf[32];
   while(1) {
-    if(g_recvBytes != 0) {
-      break;
+    if(g_recvBytes > 0) {
+        return 0;
     }
     if((millis() - startMillis) > 500) {
+      sprintf(sbuf, "timeout: %lu %lu\n", millis(), startMillis);
+      Serial.write(sbuf);
       return -1;
     }
   }
